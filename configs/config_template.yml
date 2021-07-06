@@ -1,0 +1,5 @@
+path:
+    logs: "logs"
+    log_config: "configs/logging.yml"
+    vids: "C:/myfolder/shearcellvids"
+    export: "C:/myfolder/exportfileshere
