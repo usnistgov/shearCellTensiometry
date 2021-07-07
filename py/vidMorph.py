@@ -14,6 +14,7 @@ from typing import List, Dict, Tuple, Union, Any, TextIO
 currentdir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(currentdir)
 from imshow import imshow
+from config import cfg
 
 # logging
 logger = logging.getLogger(__name__)
@@ -101,21 +102,17 @@ def fillComponents(thresh:np.array)->np.array:
 def segmentInterfaces(img:np.array) -> np.array:
     '''extract just the ink-support interfaces, which are dark'''
     gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
-    gray = cv.medianBlur(gray, 5)
-    _, interfaces = cv.threshold(gray,100,255,cv.THRESH_BINARY_INV)
-    interfaces = openMorph(interfaces, 5)
+    gray = cv.medianBlur(gray, cfg.vidMorph.segmentInterfaces.blur)
+    _, interfaces = cv.threshold(gray,cfg.vidMorph.segmentInterfaces.threshLow,255,cv.THRESH_BINARY_INV)
+#     interfaces = openMorph(interfaces, cfg.vidMorph.segmentInterfaces.open)
     filled = fillComponents(interfaces)
     return filled
 
-def detectCircles(interfaces:np.array) -> np.array:
-    '''detect circles from a filled b+w image of the fluid interfaces'''
-    dp = 3
-    circles = []
-    while len(circles)==0 or len(circles)>20:
-        circles = cv.HoughCircles(interfaces, cv.HOUGH_GRADIENT, dp, 50)
-    return circles
+
+#----------------------------
 
 def drawCircles(img:np.array, circles:np.array) -> None:
+    '''draw circles on the image'''
     removed2 = img.copy()
     if circles is not None:
         circles = np.uint16(np.around(circles))
@@ -128,28 +125,13 @@ def drawCircles(img:np.array, circles:np.array) -> None:
             cv.circle(removed2, center, radius, (255, 0, 255), 3)
     return removed2
 
-
-def detectEllipses(interfaces:np.array, diag:bool=False) -> list:
-    '''find position, dimensions, and angle of ellipses fit to interfaces. diag=true to draw result'''
-    edge = imutils.auto_canny(interfaces) # just get edges of droplets
-    dilated = dilate(edge, 4) # thicken edges
-    _, contours, hierarchy = cv.findContours(interfaces, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE) # interfaces
-    drawing = np.zeros((interfaces.shape[0], interfaces.shape[1]), dtype=np.uint8) # empty b&w drawing
-    ellipseOut = []
-    for contour in contours:
-        color = (256, 256, 256) 
-        dr = drawing.copy() # create a copy of the drawing
-        ellipse = cv.fitEllipse(contour) # fit the ellipse to the contour for that droplet
-        cv.ellipse(dr, ellipse, color, 2) # draw the droplet on the drawing w/ radius 2
-        combined = cv.bitwise_and(dilated, dilated, mask=dr)
-        overlapPx = cv.sumElems(combined)[0] # number of pixels in common between ellipse and original edges
-        ellipsePx = cv.sumElems(dr)[0] # number of pixels in ellipse
-        if overlapPx > 0.7*ellipsePx:
-            ellipseOut.append(ellipse)
-    if diag:
-        annotated = drawEllipses(dilated, ellipseOut, diag=True)
-    return ellipseOut
-
+def drawContours(img:np.array, contours:np.array) -> None:
+    '''draw contours on the image'''
+    img2 = img.copy()
+    img2 = cv.cvtColor(img2, cv.COLOR_GRAY2BGR)
+    cv.drawContours(img2, contours, -1, (0, 255, 0), 3)
+    imshow(img2)
+    
 def drawEllipses(img:np.array, ellipses:List, diag:bool=False) -> None:
     if len(img.shape)==2:
         annotated = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
@@ -160,6 +142,51 @@ def drawEllipses(img:np.array, ellipses:List, diag:bool=False) -> None:
     if diag:
         imshow(annotated)
     return annotated
+
+#------------------------
+# def detectCircles(interfaces:np.array) -> np.array:
+#     '''detect circles from a filled b+w image of the fluid interfaces'''
+#     dp = 3
+#     circles = []
+#     while len(circles)==0 or len(circles)>20:
+#         circles = cv.HoughCircles(interfaces, cv.HOUGH_GRADIENT, dp, 50)
+#     return circles
+
+def validateContour(drawing:np.array, contour:tuple, dilated:np.array) -> Tuple[bool, tuple]:
+    '''determine if the contour produces a valid ellipse. If it does, return the ellipse'''
+    if len(contour)<cfg.vidMorph.validateContour.minContourLength:
+        return False, ()
+    color = (256, 256, 256) 
+    dr = drawing.copy() # create a copy of the drawing
+    ellipse = cv.fitEllipse(contour) # fit the ellipse to the contour for that droplet
+    cv.ellipse(dr, ellipse, color, 2) # draw the droplet on the drawing w/ radius 2
+    width=ellipse[1][0]
+    if width<cfg.vidMorph.validateContour.minEllipseWidth:
+        return False, ()
+    combined = cv.bitwise_and(dilated, dilated, mask=dr)
+    overlapPx = cv.sumElems(combined)[0] # number of pixels in common between ellipse and original edges
+    ellipsePx = cv.sumElems(dr)[0] # number of pixels in ellipse
+    if overlapPx < cfg.vidMorph.validateContour.critOverlapFrac*ellipsePx:
+        return False, ()
+    return True, ellipse
+
+def detectEllipses(interfaces:np.array, diag:bool=False) -> list:
+    '''find position, dimensions, and angle of ellipses fit to interfaces. diag=true to draw result'''
+    edge = imutils.auto_canny(interfaces) # just get edges of droplets
+    dilated = dilate(edge, cfg.vidMorph.detectEllipses.dilateRad) # thicken edges
+    _, contours, hierarchy = cv.findContours(interfaces, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE) # interfaces
+    drawing = np.zeros((interfaces.shape[0], interfaces.shape[1]), dtype=np.uint8) # empty b&w drawing
+    ellipseOut = []
+#     drawContours(interfaces, contours)
+    for contour in contours:
+        val, ellipse = validateContour(drawing, contour, dilated)
+        if val:
+            ellipseOut.append(ellipse)
+    if diag:
+        annotated = drawEllipses(dilated, ellipseOut, diag=True)
+    return ellipseOut
+
+
     
     
     

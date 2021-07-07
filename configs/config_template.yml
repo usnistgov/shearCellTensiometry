@@ -3,3 +3,14 @@ path:
     log_config: "configs/logging.yml"
     vids: "C:/myfolder/shearcellvids"
     export: "C:/myfolder/exportfileshere
+vidMorph:
+    detectEllipses:
+        dilateRad: 4
+    segmentInterfaces:
+        blur: 5
+        threshLow: 100
+        open: 5
+    validateContour:
+        minContourLength: 100
+        minEllipseWidth: 40
+        critOverlapFrac: 0.7

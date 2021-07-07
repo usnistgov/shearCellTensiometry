@@ -17,6 +17,8 @@ import traceback
 # local packages
 currentdir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(currentdir)
+from vidMorph import openMorph
+from config import cfg
 
 # logging
 logger = logging.getLogger(__name__)
@@ -88,21 +90,24 @@ def padBounds(x:int, y:int, w:int, h:int, imh:int, imw:int, pad:int) -> Dict:
     bounds = {'x0':x0, 'xf':xf, 'y0':y0, 'yf':yf}
     return bounds
 
-def cropBlack(img:np.array, pad:int=10) -> np.array:
+def cropBlack(img:np.array, pad:int=10, bnds:dict={}) -> np.array:
     '''crop black borders out of image. Designed for images with visible aperture. pad with extra pixels at end https://stackoverflow.com/questions/13538748/crop-black-edges-with-opencv'''
-    gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
-    _,thresh = cv.threshold(gray,1,255,cv.THRESH_BINARY)
-    thresh = openMorph(thresh, 50) # clean up the image to make more black border
-    _, contours, hierarchy = cv.findContours(thresh,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE)
-    cnt = contours[0]
-    x,y,w,h = cv.boundingRect(cnt)
-    if w<pad or h<pad:
-        return ValueError('Cropped image is too small.')
-    imh,imw = gray.shape
-    bounds = padBounds(x,y,w,h,imh,imw,pad) # pad bounds of cropped image
-    center = findCenter(x,y,w,h,imh,imw, bounds) # find center of aperture
+    if len(bnds)==0:
+        gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
+        _,thresh = cv.threshold(gray,1,255,cv.THRESH_BINARY)
+        thresh = openMorph(thresh, cfg.vidCrop.cropBlack.open) # clean up the image to make more black border
+        _, contours, hierarchy = cv.findContours(thresh,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE)
+        cnt = contours[0]
+        x,y,w,h = cv.boundingRect(cnt)
+        if w<pad or h<pad:
+            return ValueError('Cropped image is too small.')
+        imh,imw = gray.shape
+        bounds = padBounds(x,y,w,h,imh,imw,pad) # pad bounds of cropped image
+        center = findCenter(x,y,w,h,imh,imw, bounds) # find center of aperture
+        bounds = {**bounds, **center}
+    else:
+        bounds = bnds
     crop = imcrop(img, bounds)
-    bounds = {**bounds, **center}
     return crop, bounds
 
 def getPads(h2:int, h1:int) -> Tuple[int,int]:
@@ -148,10 +153,19 @@ def removeAperture(img:np.array, bounds:Dict, crop:bool=False, dr:int=75) -> np.
     else:
         im2 = img
     
-    bs=201 # blur size
+    bs=cfg.vidCrop.removeAperture.bs # blur size
     background = np.median(im2)
     frontmask = circleMask(im2, bs, 0,255, bounds, dr=dr)
     backmask = circleMask(im2, bs, background, 0, bounds, dr=-dr)
     masked = cv.bitwise_and(frontmask,im2)
     removed = cv.add(backmask, masked)
     return removed
+
+
+def eliminateTouching(interfaces:np.array, bounds:dict) -> np.array:
+    '''remove any interface elements that are touching the edge of the aperture'''
+    circlemask = circleMask(interfaces, 0,255,0, bounds, dr=cfg.vidCrop.eliminateTouching.dr)
+    i2 =  cv.add(interfaces, circlemask)
+    cv.floodFill(i2, None, (0, 0), 0)
+    i2 = openMorph(i2, cfg.vidCrop.eliminateTouching.open)
+    return i2
