@@ -3,14 +3,23 @@ path:
     log_config: "configs/logging.yml"
     vids: "C:/myfolder/shearcellvids"
     export: "C:/myfolder/exportfileshere
+vidCrop:
+    cropBlack:
+        open: 50 # kernel size for opening
+    removeAperture:
+        bs: 201  # blur thickness
+    eliminateTouching:
+        dr: -100  # padding inside of aperture
+        open: 3  # kernel size for opening
+        
 vidMorph:
     detectEllipses:
-        dilateRad: 4
+        dilateRad: 4 # dilation kernel size
     segmentInterfaces:
-        blur: 5
-        threshLow: 100
-        open: 5
+        blur: 5  # blur radius
+        threshLow: 150 # lower intensity /256
+        open: 5  # opening kernel size
     validateContour:
-        minContourLength: 100
+        minContourLength: 100 
         minEllipseWidth: 40
-        critOverlapFrac: 0.7
+        critOverlapFrac: 0.7 # this fraction of pixels in the ellipse must be in common with the original image
