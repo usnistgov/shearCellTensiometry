@@ -103,7 +103,9 @@ def segmentInterfaces(img:np.array) -> np.array:
     '''extract just the ink-support interfaces, which are dark'''
     gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
     gray = cv.medianBlur(gray, cfg.vidMorph.segmentInterfaces.blur)
-    _, interfaces = cv.threshold(gray,cfg.vidMorph.segmentInterfaces.threshLow,255,cv.THRESH_BINARY_INV)
+    tlow = cfg.vidMorph.segmentInterfaces.threshLow
+    tlow = 100
+    _, interfaces = cv.threshold(gray,tlow,255,cv.THRESH_BINARY_INV)
 #     interfaces = openMorph(interfaces, cfg.vidMorph.segmentInterfaces.open)
     filled = fillComponents(interfaces)
     return filled

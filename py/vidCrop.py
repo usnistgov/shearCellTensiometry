@@ -96,8 +96,10 @@ def cropBlack(img:np.array, pad:int=10, bnds:dict={}) -> np.array:
         gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
         _,thresh = cv.threshold(gray,1,255,cv.THRESH_BINARY)
         thresh = openMorph(thresh, cfg.vidCrop.cropBlack.open) # clean up the image to make more black border
+#         thresh = closeMorph(thresh, cfg.vidCrop.cropBlack.open) # fill in holes
         _, contours, hierarchy = cv.findContours(thresh,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE)
-        cnt = contours[0]
+        lens = [len(i) for i in contours]
+        cnt = contours[lens.index(max(lens))] # get largest contour
         x,y,w,h = cv.boundingRect(cnt)
         if w<pad or h<pad:
             return ValueError('Cropped image is too small.')
