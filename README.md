@@ -165,8 +165,6 @@ The files included in this publication use the following hierarchy:
 
 Created 06/17/21
 
----
 
-# METHODOLOGICAL INFORMATION
 
 
