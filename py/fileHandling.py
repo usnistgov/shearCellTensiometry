@@ -40,7 +40,7 @@ class Fluid:
     '''holds information about a fluid'''
     
     def __init__(self, s:str):
-        '''s is a string that can either be shorthand or longhand for a fluid'''
+        '''s is a string that can either be shorthand or longhand for a fluid. These shorthands are defined by user convention.'''
         self.name = s
         self.base = ''
         self.rheModifier = ''
@@ -116,6 +116,7 @@ class Fluid:
 #         mu = min(mu, self.eta0)
         return mu
         
+#-----------------------------------
             
 class Profile:
     '''stores shear rate step list from file. stores a dataframe and a units dictionary'''
@@ -151,6 +152,8 @@ class Profile:
             self.units = {'mode':'', 'gap':'um', 'strain':'', 'rate':'1/s','freq':'','direction':'','time':'s'}
             self.table = pd.DataFrame(spl2, columns=cols)
 
+#-----------------------------------
+            
 class Test:
     '''stores info about a test for a single material combo and shear profile'''
     
@@ -180,10 +183,10 @@ class Test:
         self.videos = list(filter(lambda x:'.mp4' in x, self.videos))
         
     def prnt(self):
-        print('Droplet:',self.droplet.__dict__)
-        print('Matrix:',self.matrix.__dict__)
-        print('Profile:\n', self.profile.table)
-        print('Videos:', [os.path.basename(s) for s in self.videos])   
+        logging.info(f'Droplet: {self.droplet.__dict__}')
+        logging.info(f'Matrix: {self.matrix.__dict__}')
+        logging.info(f'Profile:\n{self.profile.table}')
+        logging.info(f'Videos: {[os.path.basename(s) for s in self.videos]}')   
         
     def done(self) -> bool:
         '''determine if all files are done'''
@@ -253,6 +256,8 @@ class Test:
         vi.exportSigma(overwrite=True)
         vi.exportFitPlot(overwrite=True) 
         
+#-----------------------------------
+        
         
 def analyzeRecursive(folder:str) -> None:
     '''go through all folders in the folder and analyze recursively'''
@@ -273,13 +278,15 @@ def analyzeRecursive(folder:str) -> None:
             logging.error(str(e))
             
             
-def makeTestList(folder:str) -> None:
+def makeTestList(folder:str) -> List[Test]:
+    '''make a list of tests in the folder'''
     try:
         t = Test(folder)
     except:
         if not os.path.isdir(folder):
             return []
         else:
+            # recurse
             tlist = []
             for f in os.listdir(folder):
                 f1f = os.path.join(folder, f)
@@ -290,74 +297,67 @@ def makeTestList(folder:str) -> None:
     
     
 def tanalyze(t:Test) -> None:
-    print(t.folder)
-#     t.analyze()
-
-def analyzeParallel(folder:str) -> None:
-    '''analyze folders in parallel'''
-    tlist = makeTestList(folder)
-    pool = mp.Pool(mp.cpu_count())
-    pool.map_async(tanalyze, tlist)
-    pool.close()
+    t.analyze()
     
     
-def combineSummaries(folder:str) -> None:
+def combineTable(folder:str, tag:str) -> Tuple[pd.DataFrame, dict]:
+    '''go through all of the folders and collect the summary tables into one big table. Returns dataframe, units'''
     sumall = []
+    units = {}
     for f in os.listdir(folder):
+        # recurse into lower folder
         f1 = os.path.join(folder, f)
         if os.path.isdir(f1):
-            r = combineSummaries(f1)
+            r,u = combineTable(f1, tag)
             if len(r)>0:
                 if len(sumall)>0:
+                    # add to existing list
                     sumall = pd.concat([sumall, r])
                 else:
+                    # start new list
                     sumall = r
+                    units = u
         else:
-            if 'summary' in f1:
-                r, d = plainIm(f1, 0)
+            if tag in f1:
+                r, u = plainIm(f1, 0) # import the dataframe and units
                 if len(r)>0:
+                    # get timestamp from file name
                     times = re.split('_', os.path.basename(folder))
                     name = times[-1][-3:]
                     r['vid'] = [name for i in range(len(r))]
+                    
+                    # relabel drop numbers with video name so they aren't confused with other videos
                     r['dropNum'] = [row['vid']+'.'+str(int(row['dropNum'])) for i,row in r.iterrows()]
                     if len(sumall)==0:
                         sumall = r
-                        di = d
+                        units = u
                     else:
                         sumall = pd.concat([sumall, r])
             else:
                 sumall = []
-    return sumall
+    return sumall, units
+    
+    
+def combineSummaries(folder:str) -> Tuple[pd.DataFrame, dict]:
+    '''go through all of the folders and collect the summary tables into one big table'''
+    return combineTable(folder, 'summary')
 
 
+def combineRelax(folder:str) -> Tuple[pd.DataFrame, dict]:
+    '''go through all of the folders and collect the relaxation tables into one big table'''
+    return combineTable(folder, 'relax_')
 
-def combineRelax(folder:str) -> None:
-    sumall = []
-    for f in os.listdir(folder):
-        f1 = os.path.join(folder, f)
-        if os.path.isdir(f1):
-            r = combineRelax(f1)
-            if len(r)>0:
-                if len(sumall)>0:
-                    sumall = pd.concat([sumall, r])
-                else:
-                    sumall = r
-        else:
-            if 'relax_' in f1:
-                r, d = plainIm(f1, 0)
-                if len(r)>0:
-                    times = re.split('_', os.path.basename(folder))
-                    name = times[-1][-3:]
-                    r['vid'] = [name for i in range(len(r))]
-                    r['dropNum'] = [row['vid']+'.'+str(int(row['dropNum'])) for i,row in r.iterrows()]
-                    if len(sumall)==0:
-                        sumall = r
-                        di = d
-                    else:
-                        sumall = pd.concat([sumall, r])
-            else:
-                sumall = []
-    return sumall
+#--------------------------------------------------
+# UNDER CONSTRUCTION
+
+# def analyzeParallel(folder:str) -> None:
+#     '''analyze folders in parallel'''
+#     tlist = makeTestList(folder)
+#     pool = mp.Pool(mp.cpu_count())
+#     pool.map_async(tanalyze, tlist)
+#     pool.close()
+    
+    
         
 
         

@@ -14,7 +14,6 @@ from typing import List, Dict, Tuple, Union, Any, TextIO
 from matplotlib import pyplot as plt
 import pandas as pd
 import traceback
-
 import re
 
 # local packages
@@ -203,12 +202,18 @@ class vidInfo:
         '''detect droplets for just one frame'''
         frame = readSpecificFrame(self.file, time=time, frameNum=frameNum)
         droplets = self.dTabs.getDroplets(frame, diag=diag)
+        droplets = pd.DataFrame([{'x (px)':int(i[0][0]), 'y (px)':int(i[0][1]), 'w (px)':int(i[1][0]), 'h (px)':int(i[1][1]), 'angle':int(i[2])} for i in droplets])
         return droplets
 
     #---------------------------------
 
+    def summarizeDroplet(self, dropNum, diag:int=0) -> pd.DataFrame:
+        '''summarize just one droplet and display info'''
+        return summarizeDroplet(self.dTabs, 1, self.mppx, self.droplet, self.matrix, diag=1)
+        
 
     def summarizeDroplets(self, diag:int=0) -> None:
+        '''summarize all of the droplets and compile into table'''
         self.summary, self.summaryUnits = summarizeDroplets(self.dTabs, self.mppx, self.droplet, self.matrix, diag=diag)
         
     def getSigma(self, plot:bool=False,  xminlist:dict={1:-1,2:-1,3:-1,4:-1}, xmaxlist:dict={1:-1,2:-1,3:-1,4:-1}, interceptlist:dict={1:0,2:0,3:0,4:0}) -> None:
@@ -230,6 +235,14 @@ class vidInfo:
         self.relaxation, self.relaxationUnits, self.relaxPlots = getRelaxation(self.dTabs, self.mppx, self.droplet, self.matrix, diag=diag)
     
     #--------------------------------
+    
+    def inspectRange(self, xstr:str, xmin:float=-1, xmax:float=100000000, relabeled:bool=True) -> None:
+        '''show list of points and plot, for droplets within the range. relabeled is the table, true to use relabeled droplets and false to use original. xstr is 'frame' or 'time' '''
+        dt = self.dTabs.dropletTab.copy()
+        dt = dt[(dt.frame>=xmin)&(dt.frame<=xmax)]
+        display(dt.sort_values(by='frame'))
+        fig = self.plotDroplets(relabeled, 'frame', xmin=xmin, xmax=xmax)
+        return fig
     
     def plotDroplets(self, relabeled:bool, xstr:str, xmin:float=-1, xmax:float=1000000000, removeOutlier:bool=False, removeZero:bool=False) -> None:
         '''plot the droplets over time. 
@@ -264,7 +277,7 @@ class vidInfo:
                 axs[2].scatter(d1[xstr], d1['y'], label=n, s=2)
                 axs[3].scatter(d1[xstr], d1['x'], label=n, s=2)
             if len(df.dropNum.unique())<20:
-                axs[3].legend(bbox_to_anchor=(1.05, 0), loc='lower left')
+                axs[3].legend(bbox_to_anchor=(1.05, 0), loc='lower left', title='dropNum')
         for s in ['t0', 'tf']:
             tlist = self.dTabs.moveTimes[s]
             if s=='t0':
@@ -339,6 +352,7 @@ class vidInfo:
         except:
             return 1
         else:
+            logging.info(f'Loaded file {fn}')
             return 0
         
     def exportGeneric(self, title:str, table:pd.DataFrame, units:dict, overwrite:bool=False) -> None:
@@ -384,6 +398,7 @@ class vidInfo:
                 self.dTabs.finalFrame = max(self.dTabs.dropletTab.frame)
         except:
             return 2
+        logging.info(f'Loaded file {fn}')
         return 0
         
     def exportDroplets(self, overwrite=False) -> None:

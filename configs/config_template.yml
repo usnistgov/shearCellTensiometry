@@ -1,8 +1,12 @@
 path:
+    test: 'test'
     logs: "logs"
     log_config: "configs/logging.yml"
-    vids: "C:/myfolder/shearcellvids"
-    export: "C:/myfolder/exportfileshere
+    rheTable: "myFolder/shearCellRhe.xlsx"   
+    vids: "myVideoFolder"
+    export: "myExportFolder"   
+vidRead:
+    scale: 446 # px per mm
 vidCrop:
     cropBlack:
         open: 50 # kernel size for opening
@@ -17,9 +21,10 @@ vidMorph:
         dilateRad: 4 # dilation kernel size
     segmentInterfaces:
         blur: 5  # blur radius
-        threshLow: 150 # lower intensity /256
+        threshLow: 100 # lower intensity /256
         open: 5  # opening kernel size
     validateContour:
-        minContourLength: 100 
-        minEllipseWidth: 40
+        minContourLength: 100 # perimeter of the droplet must be at least this many pixels to be valid
+        minEllipseWidth: 40  # ellipse must be at least this wide to be valid
         critOverlapFrac: 0.7 # this fraction of pixels in the ellipse must be in common with the original image
+

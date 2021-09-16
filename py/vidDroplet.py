@@ -218,17 +218,11 @@ class dropletTracker:
         changes = [[dropletChange(oldrow, newrow) for i,oldrow in self.prevDroplets.iterrows()] for j,newrow in newDroplets.iterrows()]
         changes = pd.DataFrame(flatten(changes))
         changes['dposnorm'] = changes['dpos']/critdd
-        
 
-            
         changes = changes[abs(changes.v)<10000]   # velocity small enough
         changes = changes[changes.dvol<0.25]     # change in volume small enough
         changes = changes[abs(changes.dx)<50]
-        
-#         if newDroplets.iloc[0]['frame']>300:
-#             print(newDroplets.iloc[0]['frame'], critdd)
-#             display(changes)
-        
+
         # filter 
         if abs(critdd)>0:
             changes = changes[(changes.dposnorm>0.25)|(abs(changes.dpos)<3)]       # movement large enough and in same direction or static
@@ -346,7 +340,7 @@ class dropletTracker:
         droplets = detectEllipses(interfaces2, diag=False)              # measure ellipses
         if diag:
             ellipse1 = drawEllipses(removed, droplets, diag=False)
-            imshow(ellipse1, interfaces, interfaces2)
+            imshow(frame,ellipse1, interfaces2)
         return droplets
     
     def measureDroplets(self, droplets:List[tuple], time:float, frame:int, diag:int=0) -> None:
@@ -775,14 +769,11 @@ def dropData(dropNum:int, df:pd.DataFrame, row:pd.Series, droplet, matrix, r0:fl
     tf = row['tf']
     df0 = df[(df.time>=t0)&(df.time<=tf)] # points within this time range
     df0 = df0[abs(df0.v)>0]
-#     df0 = df0[(df0.x>df0.x.median()-20)&(df0.x<df0.x.median()+20)]
-#     df0 = removeOutliers(df0, 'y')
-#     df0 = removeOutliers(df0, 'x', high=0.9, low=0.1)
     df0 = removeOutliers(df0, 'v', high=0.9, low=0.1) # remove jagged moves
     if df0.v.mean()<0:
-        df0 = df0[df0.v<0]
+        df0 = df0[df0.v<0] # if the average movement is negative, only include points where movement is negative
     else:
-        df0 = df0[df0.v>0]
+        df0 = df0[df0.v>0] # if the average movement is positive, only include points where movement is positive
     if df0.x.max() - df0.x.min() > 100:
         # big x range. might contain disconnected parts
         dx = [0]+[df0.iloc[i]['x']-df0.iloc[i-1]['x'] for i in range(1, len(df0))]  # change in x list
@@ -796,17 +787,19 @@ def dropData(dropNum:int, df:pd.DataFrame, row:pd.Series, droplet, matrix, r0:fl
         return {}
     
     if diag>0:
+        # plot trajectory of droplet
         plt.scatter(df0['x'], df0['y'], s=3)
         plt.plot(df0['x'], df0['y'], label=f'{dropNum}, {row.name}')
         plt.legend(bbox_to_anchor=(1, 1), loc='upper left')
     if diag>1:
+        # display all points for aggressive diagnostics
         display(df0)
     
     wave = df0.w.mean()*mppx # convert this to meters
     rz = wave/2
     lave = df0.l.mean()*mppx
     vave = df0.v.mean()*mppx # velocity in m/s
-    gdothzest = abs(vave/(float(row['gap'])/10**6)) # estimated shear rate in Hz
+    gdothzest = abs(vave/(float(row['gap'])/10**6)) # estimated shear rate in Hz based on velocity of droplet
     
     if not (wave>0 and lave>0):
         return {}
@@ -866,10 +859,19 @@ def summarizeDroplet(dTab:dropletTracker, dropNum:int, mppx:float, droplet, matr
     baseline = baseline.iloc[0]
     r0 = baseline['r0']*mppx # convert this to meters
     measurements = []
+
     for i,row in dTab.moveTimes.iterrows():
+        # for each pass, summarize the droplet data into one row
         dd = dropData(dropNum, df, row, droplet, matrix, r0, mppx, diag=diag)
         if len(dd)>0:
             measurements.append(dd)
+            
+    if diag>0:
+        plt.xlabel('x (px)')
+        plt.ylabel('y (px)')
+        ax = plt.gca()
+        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
+        plt.title('Droplet number, pass number')
 
     return pd.DataFrame(measurements)
 
@@ -905,6 +907,7 @@ def polyfit(x:List[float], y:List[float], degree:int) -> Dict:
     return results
 
 def quadReg(x:list, y:list) -> Dict:
+    '''quadratic regression'''
     res = polyfit(x,y,2)
     return {'a':res['coeffs'][0], 'b':res['coeffs'][1], 'c':res['coeffs'][2], 'r2':res['r2']}
 

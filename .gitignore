@@ -1,4 +1,5 @@
 *.ipynb_checkpoints*
 config.yml
 *pycache*
+*.log
 
