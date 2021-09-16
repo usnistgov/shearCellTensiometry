@@ -164,9 +164,11 @@ def removeAperture(img:np.array, bounds:Dict, crop:bool=False, dr:int=75) -> np.
     return removed
 
 
-def eliminateTouching(interfaces:np.array, bounds:dict) -> np.array:
+def eliminateTouching(interfaces:np.array, bounds:dict, dr:int=1) -> np.array:
     '''remove any interface elements that are touching the edge of the aperture'''
-    circlemask = circleMask(interfaces, 0,255,0, bounds, dr=cfg.vidCrop.eliminateTouching.dr)
+    if dr>0:
+        dr = cfg.vidCrop.eliminateTouching.dr
+    circlemask = circleMask(interfaces, 0,255,0, bounds, dr=dr)
     i2 =  cv.add(interfaces, circlemask)
     cv.floodFill(i2, None, (0, 0), 0)
     i2 = openMorph(i2, cfg.vidCrop.eliminateTouching.open)

@@ -1,0 +1,7 @@
+Aug17/17:11:38/makerbot/INFO: Established log: C:\Users\lmf1\Documents\GitHub\shearCellTensiometry\logs\fileHandling_makerbot.log
+Aug17/17:21:16/makerbot/INFO: Determining baseline
+Aug17/17:21:16/makerbot/ERROR: Error during baselineDroplets: 'dropletTracker' object has no attribute 'relabeledDroplets'
+Aug17/17:28:07/makerbot/INFO: Determining baseline
+Aug17/17:28:07/makerbot/ERROR: Error during baselineDroplets: 'dropletTracker' object has no attribute 'relabeledDroplets'
+Aug17/17:29:08/makerbot/INFO: Determining baseline
+Aug17/17:29:08/makerbot/INFO: Splitting times
