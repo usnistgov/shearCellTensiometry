@@ -11,6 +11,7 @@ import cv2 as cv
 from sklearn.linear_model import LinearRegression
 from sklearn import metrics
 from sklearn.cluster import KMeans
+from typing import List, Dict, Tuple, Union, Any, TextIO
 
 # local packages
 currentdir = os.path.dirname(os.path.realpath(__file__))
